@@ -26,15 +26,13 @@ object part1 extends IOApp.Simple {
   } yield elfs.toSeq
 
   def mostCalories(elfs: Seq[Elf]): IO[Elf] =
-    IO(elfs.sortBy(_.calories)(Ordering[Int].reverse).head)
+    IO.pure(elfs.sortBy(_.calories)(Ordering[Int].reverse).head)
 
   override def run = {
     parseFile()
       .flatMap { elfs =>
         mostCalories(elfs)
       }
-      .map {
-        println
-      }
+      .map(println)
   }
 }
