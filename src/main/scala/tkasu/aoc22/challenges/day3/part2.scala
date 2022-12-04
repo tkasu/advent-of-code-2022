@@ -1,11 +1,7 @@
 package tkasu.aoc22.challenges.day3
 
-import cats.effect.{IO, IOApp, Resource}
+import cats.effect.{IO, IOApp}
 import tkasu.aoc22.challenges.day3.part1.{parseFile, priorityMap, RuckSack}
-import tkasu.aoc22.utils.files.{closeFile, makeSourceResource, readLines, readResource}
-
-import java.io.File
-import scala.io.Source
 
 object part2 extends IOApp.Simple {
 
@@ -19,9 +15,11 @@ object part2 extends IOApp.Simple {
 
   def findBadge(sackGroup: Seq[RuckSack]): Char =
     val sackGroupChars = sackGroup.map(sack => Set.from(sack.allItems))
-    val common = sackGroupChars.reduce((acc, next) => acc & next)
+    val common         = sackGroupChars.reduce((acc, next) => acc & next)
     if (common.size != 1) {
-      throw IllegalArgumentException(s"Expected exactly one common characters: ${common.mkString(",")} from $sackGroup")
+      throw IllegalArgumentException(
+        s"Expected exactly one common characters: ${common.mkString(",")} from $sackGroup"
+      )
     }
     common.head
 

@@ -1,11 +1,7 @@
 package tkasu.aoc22.challenges.day4
 
-import cats.effect.{IO, IOApp, Resource}
+import cats.effect.{IO, IOApp}
 import tkasu.aoc22.challenges.day4.part1.{parseFile, CleaningPair, Elf}
-import tkasu.aoc22.utils.files.{closeFile, makeSourceResource, readLines, readResource}
-
-import java.io.File
-import scala.io.Source
 
 object part2 extends IOApp.Simple {
 

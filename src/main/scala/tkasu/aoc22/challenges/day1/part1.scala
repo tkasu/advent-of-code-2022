@@ -1,7 +1,7 @@
 package tkasu.aoc22.challenges.day1
 
-import cats.effect.{IO, IOApp, Resource}
-import tkasu.aoc22.utils.files.{closeFile, makeSourceResource, readLines, readResource}
+import cats.effect.{IO, IOApp}
+import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
 
 import java.io.File
 import scala.io.Source
