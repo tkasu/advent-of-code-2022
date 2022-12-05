@@ -1,7 +1,6 @@
 package tkasu.aoc22.challenges.day5
 
-import cats.effect.{IO, IOApp}
-import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
+import cats.effect.IOApp
 import tkasu.aoc22.challenges.day5.part1.{Stack, Move, parseFile, topCrates}
 
 object part2 extends IOApp.Simple {
