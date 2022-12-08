@@ -55,7 +55,7 @@ object part1 extends IOApp.Simple {
   def stringifyMatrix[T](matrix: Array[Array[T]], identifier: String): String =
     matrix.map(_.toSeq.mkString("[", ",", "]")).toSeq.mkString(s"$identifier[\n  ", "\n  ", "\n]")
 
-  def parseFile() = for {
+  def parseFile(): IO[TreeGrid] = for {
     input <- inputResource.use(src => readLines(src))
     grid = TreeGrid(input.split("\n").map(_.toCharArray.map(_.asDigit)))
   } yield grid

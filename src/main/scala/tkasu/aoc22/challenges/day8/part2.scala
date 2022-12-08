@@ -1,7 +1,6 @@
 package tkasu.aoc22.challenges.day8
 
 import cats.effect.{IO, IOApp}
-import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
 import tkasu.aoc22.challenges.day8.part1.{parseFile, stringifyMatrix, TreeGrid}
 
 object part2 extends IOApp.Simple {
