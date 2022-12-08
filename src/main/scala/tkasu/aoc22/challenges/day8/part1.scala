@@ -28,17 +28,19 @@ object part1 extends IOApp.Simple {
       || visibleUp(row, columnHeights)
       || visibleDown(row, columnHeights)
 
+    private def isVisibleInLine(height: Int, treeLineHeights: Array[Int]): Boolean =
+      !treeLineHeights.exists(_ >= height)
+
     private def visibleLeft(column: Int, rowHeights: Array[Int]): Boolean =
-      val (left, right) = rowHeights.splitAt(column)
-      val height        = right.head
-      val visible       = !left.exists(_ >= height)
-      visible
+      val (treeLine, right) = rowHeights.splitAt(column)
+      val height            = right.head
+      isVisibleInLine(height, treeLine)
 
     private def visibleRight(column: Int, rowHeights: Array[Int]) =
       val (_, right) = rowHeights.splitAt(column)
       val height     = right.head
-      val onRight    = right.tail
-      !onRight.exists(_ >= height)
+      val treeLine   = right.tail
+      isVisibleInLine(height, treeLine)
 
     private def visibleUp(row: Int, columnHeights: Array[Int]) =
       visibleLeft(row, columnHeights)
