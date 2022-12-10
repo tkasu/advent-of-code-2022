@@ -66,18 +66,16 @@ object part1 extends IOApp.Simple {
 
     def applyMove(move: Move): Grid =
       val (newHeadLoc, newTailLoc, newTailVisitLocs) =
-        (0 until move.count).foldLeft(headLoc, tailLoc, tailVisitLocs)((locTuple, _) => {
-          val headLocTmp       = locTuple._1
-          val tailLocTmp       = locTuple._2
-          val tailVisitLocsTmp = locTuple._3
-          val newHeadLoc       = Grid.moveLocByOne(headLocTmp, move.direction)
-          val newTailLoc =
-            if (Grid.nextToEachOther(tailLocTmp, newHeadLoc)) tailLocTmp
-            else if (Grid.nearSameRowOrColumn(tailLocTmp, newHeadLoc))
-              Grid.moveLocByOne(tailLocTmp, move.direction)
-            else Grid.moveTailDiag(tailLocTmp, newHeadLoc)
-          (newHeadLoc, newTailLoc, tailVisitLocsTmp + newTailLoc)
-        })
+        (0 until move.count).foldLeft(headLoc, tailLoc, tailVisitLocs) {
+          case ((headLocState, tailLocState, tailVisitLocsState), _) =>
+            val newHeadLoc = Grid.moveLocByOne(headLocState, move.direction)
+            val newTailLoc =
+              if (Grid.nextToEachOther(tailLocState, newHeadLoc)) tailLocState
+              else if (Grid.nearSameRowOrColumn(tailLocState, newHeadLoc))
+                Grid.moveLocByOne(tailLocState, move.direction)
+              else Grid.moveTailDiag(tailLocState, newHeadLoc)
+            (newHeadLoc, newTailLoc, tailVisitLocsState + newTailLoc)
+        }
       this.copy(headLoc = newHeadLoc, tailLoc = newTailLoc, tailVisitLocs = newTailVisitLocs)
 
     def gridForPrint: Array[Array[Char]] =

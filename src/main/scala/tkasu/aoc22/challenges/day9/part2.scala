@@ -71,26 +71,22 @@ object part2 extends IOApp.Simple {
             grid.tailLoc,
             grid.tailVisitLocs,
             Seq.empty[MoveExtended]
-          )((locTuple, _) => {
-            val headLocTmp       = locTuple._1
-            val tailLocTmp       = locTuple._2
-            val tailVisitLocsTmp = locTuple._3
-            val tailMovesTmp     = locTuple._4
-            val newHeadLoc       = grid.moveLocByOne(headLocTmp, moveExt.direction)
-            val sameRowColumnDir = grid.sameRowOrColumnDir(tailLocTmp, newHeadLoc)
+          ) { case ((headLocState, tailLocState, tailVisitLocsState, tailMovesState), _) =>
+            val newHeadLoc       = grid.moveLocByOne(headLocState, moveExt.direction)
+            val sameRowColumnDir = grid.sameRowOrColumnDir(tailLocState, newHeadLoc)
             val (newTailLoc, newTailMoves) =
-              if (Grid.nextToEachOther(tailLocTmp, newHeadLoc)) (tailLocTmp, tailMovesTmp)
+              if (Grid.nextToEachOther(tailLocState, newHeadLoc)) (tailLocState, tailMovesState)
               else if (sameRowColumnDir.isDefined)
                 (
-                  grid.moveLocByOne(tailLocTmp, sameRowColumnDir.get),
-                  tailMovesTmp :+ MoveExtended(sameRowColumnDir.get, 1)
+                  grid.moveLocByOne(tailLocState, sameRowColumnDir.get),
+                  tailMovesState :+ MoveExtended(sameRowColumnDir.get, 1)
                 )
               else {
-                val tailMove = getDiagMoveExt(tailLocTmp, newHeadLoc)
-                (grid.moveLocByOne(tailLocTmp, tailMove.direction), tailMovesTmp :+ tailMove)
+                val tailMove = getDiagMoveExt(tailLocState, newHeadLoc)
+                (grid.moveLocByOne(tailLocState, tailMove.direction), tailMovesState :+ tailMove)
               }
-            (newHeadLoc, newTailLoc, tailVisitLocsTmp + newTailLoc, newTailMoves)
-          })
+            (newHeadLoc, newTailLoc, tailVisitLocsState + newTailLoc, newTailMoves)
+          }
         (
           grid.copy(headLoc = newHeadLoc, tailLoc = newTailLoc, tailVisitLocs = newTailVisitLocs),
           tailMoves
