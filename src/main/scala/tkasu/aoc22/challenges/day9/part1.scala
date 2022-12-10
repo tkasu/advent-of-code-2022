@@ -14,19 +14,34 @@ object part1 extends IOApp.Simple {
 
     def startLoc: (Int, Int) = (0, 0)
 
+    def widthMinLoc: Int  = (tailLoc._2, headLoc._2, tailVisitLocs.map(_._2).min).toList.min
+    def heightMinLoc: Int = (tailLoc._1, headLoc._1, tailVisitLocs.map(_._1).min).toList.min
+
     def width: Int =
-      (tailLoc._2, headLoc._2, tailVisitLocs.map(_._2).max).toList.max + 1
+      val widthMaxLoc = (tailLoc._2, headLoc._2, tailVisitLocs.map(_._2).max).toList.max
+      (widthMaxLoc - widthMinLoc) + 1
 
     def height: Int =
-      (tailLoc._1, headLoc._1, tailVisitLocs.map(_._1).max).toList.max + 1
+      val heightMaxLoc = (tailLoc._1, headLoc._1, tailVisitLocs.map(_._1).max).toList.max
+      (heightMaxLoc - heightMinLoc) + 1
+
+    // Adjust negative values to positive ones for printing
+    def startLocAdjusted: (Int, Int) = Grid.adjustNegativeLoc(startLoc, heightMinLoc, widthMinLoc)
+    def tailLocAdjusted: (Int, Int)  = Grid.adjustNegativeLoc(tailLoc, heightMinLoc, widthMinLoc)
+    def headLocAdjusted: (Int, Int)  = Grid.adjustNegativeLoc(headLoc, heightMinLoc, widthMinLoc)
+
+    def tailVisitLocsAdjusted: Set[(Int, Int)] =
+      tailVisitLocs.map { case (height, width) =>
+        Grid.adjustNegativeLoc((height, width), heightMinLoc, widthMinLoc)
+      }
 
     def locations: Array[Array[Option[Seq[GridMarkers]]]] =
       Array.ofDim[Option[Seq[GridMarkers]]](height, width).zipWithIndex.map { case (row, rowIdx) =>
         row.indices.map { columnIdx =>
           val markersInLoc = (
-            (GridMarkers.Tail, tailLoc),
-            (GridMarkers.Head, headLoc),
-            (GridMarkers.Start, startLoc)
+            (GridMarkers.Tail, tailLocAdjusted),
+            (GridMarkers.Head, headLocAdjusted),
+            (GridMarkers.Start, startLocAdjusted)
           ).toList
             .filter { case (_, loc) =>
               loc == (rowIdx, columnIdx)
@@ -45,11 +60,11 @@ object part1 extends IOApp.Simple {
     def tailVisitLocGrid: Array[Array[Boolean]] =
       Array.ofDim[Boolean](height, width).zipWithIndex.map { case (row, rowIdx) =>
         row.indices.map { columnIdx =>
-          tailVisitLocs.contains((rowIdx, columnIdx))
+          tailVisitLocsAdjusted.contains((rowIdx, columnIdx))
         }.toArray
       }
 
-    def applyMove(move: Move) =
+    def applyMove(move: Move): Grid =
       val (newHeadLoc, newTailLoc, newTailVisitLocs) =
         (0 until move.count).foldLeft(headLoc, tailLoc, tailVisitLocs)((locTuple, _) => {
           val headLocTmp       = locTuple._1
@@ -110,6 +125,11 @@ object part1 extends IOApp.Simple {
     def moveTailDiag(tailLoc: (Int, Int), headLoc: (Int, Int)): (Int, Int) =
       val (dir1, dir2) = diagMoveDirs(tailLoc, headLoc)
       moveLocByOne(moveLocByOne(tailLoc, dir1), dir2)
+
+    def adjustNegativeLoc(loc: (Int, Int), heightMin: Int, widthMin: Int): (Int, Int) = (
+      loc._1 + (if (heightMin < 0) heightMin.abs else 0),
+      loc._2 + (if (widthMin < 0) widthMin.abs else 0)
+    )
 
   enum Direction:
     case Left, Right, Up, Down
