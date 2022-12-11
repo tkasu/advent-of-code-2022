@@ -29,6 +29,33 @@ object part1 extends IOApp.Simple {
     override val instructionLen = 2
   }
 
+  case class Program(instructions: Seq[Instruction]) {
+    private lazy val states = runProgram(ProgramState(instructions, time = 1, regValue = 1))
+
+    def regValueAtCycle(cycle: Int): Option[Int] =
+      states
+        .findLast(_.time <= cycle)
+        .map(_.regValue)
+
+    def signalStrengths(atCycles: Int*): Seq[Int] =
+      atCycles.map(cycle => cycle * regValueAtCycle(cycle).getOrElse(0))
+
+    private def runProgram(program: ProgramState): List[ProgramState] =
+      @tailrec
+      def helper(
+          programState: ProgramState,
+          executedStates: List[ProgramState]
+      ): List[ProgramState] =
+        programState.instructionsQueue.toList match {
+          case List() => executedStates
+          case _ =>
+            val newState = programState.execInstruction()
+            helper(newState, newState :: executedStates)
+        }
+
+      helper(program, List(program)).reverse
+  }
+
   case class ProgramState(instructionsQueue: Seq[Instruction], regValue: Int, time: Int) {
 
     def execInstruction(): ProgramState =
@@ -40,38 +67,16 @@ object part1 extends IOApp.Simple {
       }
   }
 
-  def parseFile() = for {
+  def parseFile(): IO[Seq[Instruction]] = for {
     input <- inputResource.use(src => readLines(src))
     instructions = input.split("\n").map(Instruction.fromLine).toSeq
-    program      = ProgramState(instructions, regValue = 1, time = 1)
-  } yield program
-
-  def runProgram(program: ProgramState): List[ProgramState] =
-    @tailrec
-    def helper(programState: ProgramState, executedStates: List[ProgramState]): List[ProgramState] =
-      programState.instructionsQueue.toList match {
-        case List() => executedStates
-        case _ =>
-          val newState = programState.execInstruction()
-          helper(newState, newState :: executedStates)
-      }
-    helper(program, List(program)).reverse
-
-  def regValueAtCycle(programStates: List[ProgramState], cycle: Int): Int =
-    programStates
-      .map(state => (state.time, state.regValue))
-      .findLast((stateCycle, _) => (stateCycle <= cycle))
-      .map((_, regValue) => regValue)
-      .get
+  } yield instructions
 
   override def run = for {
-    initialProgram <- parseFile()
-    programStates = runProgram(initialProgram)
-    // _ <- IO(println(programStates.map(state => (state.time, state.regValue))))
-    sigStrengths = List(20, 60, 100, 140, 180, 220).map(cycle =>
-      cycle * regValueAtCycle(programStates, cycle)
-    )
-    // _ <- IO(println(s"Signal strengths: $sigStrengths"))
+    instructions <- parseFile()
+    program      = Program(instructions)
+    sigStrengths = program.signalStrengths(20, 60, 100, 140, 180, 220)
+    _ <- IO(println(s"Signal strengths: $sigStrengths"))
     _ <- IO(println(s"Sum of signal strengths: ${sigStrengths.sum}"))
   } yield ()
 }
