@@ -30,7 +30,7 @@ object part1 extends IOApp.Simple {
   }
 
   case class Program(instructions: Seq[Instruction]) {
-    private lazy val states = runProgram(ProgramState(instructions, time = 1, regValue = 1))
+    lazy val states = runProgram(ProgramState(instructions, time = 1, regValue = 1))
 
     def regValueAtCycle(cycle: Int): Option[Int] =
       states
