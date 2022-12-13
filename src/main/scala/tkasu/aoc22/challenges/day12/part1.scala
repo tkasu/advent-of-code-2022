@@ -30,16 +30,6 @@ object part1 extends IOApp.Simple {
       }
   }
 
-  object Direction:
-
-    def toChar(dir: Direction): Char =
-      dir match {
-        case Direction.Up    => '^'
-        case Direction.Down  => 'v'
-        case Direction.Left  => '<'
-        case Direction.Right => '>'
-      }
-
   case class Location(row: Int, column: Int) {
 
     def move(dir: Direction): Location =
@@ -92,7 +82,7 @@ object part1 extends IOApp.Simple {
         if (canMoveDown(heights)) Some(Direction.Down) else None
       ).flatten
 
-    def foundOptimal: Boolean = elfLoc == targetLoc
+    def atTarget: Boolean = elfLoc == targetLoc
   }
 
   object TravelState:
@@ -141,7 +131,11 @@ object part1 extends IOApp.Simple {
       None
     }
 
-  def findNewRoutes(state: TravelState, heightMap: HeightMap): Option[List[TravelState]] =
+  def addThreadPrefix(s: String): String =
+    val threadName = Thread.currentThread().getName
+    s"[$threadName] $s"
+
+  def findNextMoves(state: TravelState, heightMap: HeightMap): Option[List[TravelState]] =
     val moveDirs = state
       .possibleDirections(heightMap)
       .filterNot(_.oppositeTo(state.steps.headOption))
@@ -161,74 +155,68 @@ object part1 extends IOApp.Simple {
       if (newStates.isEmpty) None
       else Some(newStates)
 
-  /**
-   * Find routes in parallel with Cats Effect Fibers
-   * - Uses resultRef to store the shortest path
-   * - Uses shortestPathToLocRef to optimize that recursion is stopped if the current location
-   *    has been visited with fewer steps before by some other possible route
-   */
-  def findRoutesWithFibers(
+  /** Find routes in parallel with Cats Effect IOs
+    *   - Uses resultRef to store the shortest path
+    *   - Uses shortestPathToLocRef to optimize that recursion is stopped if the current location
+    *     has been visited with fewer steps before by some other possible route
+    */
+  private def findRoutesParallel(
       state: TravelState,
       heightMap: HeightMap,
       resultRef: Ref[IO, Option[Steps]],
       shortestPathToLocRef: Ref[IO, Map[Location, Int]]
   ): IO[Unit] =
+
+    def updateResultRef(state: TravelState, resultRef: Ref[IO, Option[Steps]]): IO[Unit] =
+      resultRef.modify[Unit] {
+        case None => (Some(state.steps.reverse), ())
+        case curSteps @ Some(steps) =>
+          if (steps.length <= state.steps.length) (curSteps, ())
+          else (Some(state.steps.reverse), ())
+      }
+
+    def maybeUpdateLocMapRef(
+        state: TravelState,
+        shortestPathToLocRef: Ref[IO, Map[Location, Int]]
+    ): IO[Boolean] =
+      shortestPathToLocRef.modify[Boolean] { map =>
+        val curLen = state.steps.length
+        map.get(state.elfLoc) match {
+          case None => (map + (state.elfLoc -> curLen), true)
+          case Some(len) =>
+            if (len <= curLen) (map, false) else (map + (state.elfLoc -> curLen), true)
+        }
+      }
+
     for {
-      resWasUpdated <- maybeUpdateRes(state, resultRef)
-      mapWasUpdated <- maybeUpdateLocMap(state, shortestPathToLocRef)
-      newStates = if (!resWasUpdated && mapWasUpdated) findNewRoutes(state, heightMap) else None
+      _ <- IO.unit
+      foundTarget = state.atTarget
+      _ <-
+        if (foundTarget)
+          IO(println(addThreadPrefix(s"Found route with length: ${state.steps.length}.")))
+            >> updateResultRef(state, resultRef)
+        else IO.unit
+      isCurrentlyShortestToLoc <- maybeUpdateLocMapRef(state, shortestPathToLocRef)
+      newStates =
+        if (!foundTarget && isCurrentlyShortestToLoc) findNextMoves(state, heightMap) else None
       listOfIos = newStates match {
         case None => List.empty
         case Some(states) =>
           states.map(newState =>
-            findRoutesWithFibers(newState, heightMap, resultRef, shortestPathToLocRef)
+            findRoutesParallel(newState, heightMap, resultRef, shortestPathToLocRef)
           )
       }
-      fibs <- listOfIos.map(_.start).sequence
-      // 4 directions -> 4 new fibers at max
-      // There has to be a nicer way, but can't figure out one at the moment
-      _ <- fibs.get(0) match {
-        case None      => IO.unit
-        case Some(fib) => fib.joinWithNever
-      }
-      _ <- fibs.get(1) match {
-        case None      => IO.unit
-        case Some(fib) => fib.joinWithNever
-      }
-      _ <- fibs.get(2) match {
-        case None      => IO.unit
-        case Some(fib) => fib.joinWithNever
-      }
-      _ <- fibs.get(3) match {
-        case None      => IO.unit
-        case Some(fib) => fib.joinWithNever
-      }
+      _ <- listOfIos.parSequence
     } yield ()
 
-  private def maybeUpdateRes(state: TravelState, resultRef: Ref[IO, Option[Steps]]): IO[Boolean] =
-    if (state.foundOptimal)
-      val threadName = Thread.currentThread().getName
-      IO(println(s"[$threadName] Found route with length: ${state.steps.length}."))
-        >> resultRef.modify[Unit] {
-          case None => (Some(state.steps.reverse), ())
-          case curSteps @ Some(steps) =>
-            if (steps.length <= state.steps.length) (curSteps, ())
-            else (Some(state.steps.reverse), ())
-        } >> IO(true)
-    else IO(false)
-
-  private def maybeUpdateLocMap(
-      state: TravelState,
-      shortestPathToLocRef: Ref[IO, Map[Location, Int]]
-  ): IO[Boolean] =
-    shortestPathToLocRef.modify[Boolean] { map =>
-      val curLen = state.steps.length
-      map.get(state.elfLoc) match {
-        case None => (map + (state.elfLoc -> curLen), true)
-        case Some(len) =>
-          if (len <= curLen) (map, false) else (map + (state.elfLoc -> curLen), true)
-      }
-    }
+  def findRoutes(state: TravelState, heightMap: HeightMap): IO[Option[Steps]] = for {
+    _ <- IO(println(addThreadPrefix(s"Starting route finding for $state")))
+    initStepsState: Option[Steps] = None
+    resultRef            <- Ref[IO].of(initStepsState)
+    shortestPathToLocRef <- Ref[IO].of(Map.empty[Location, Int])
+    _                    <- findRoutesParallel(state, heightMap, resultRef, shortestPathToLocRef)
+    shortestRoute        <- resultRef.get
+  } yield shortestRoute
 
   def parseFile() = for {
     input <- inputResource.use(src => readLines(src))
@@ -238,14 +226,11 @@ object part1 extends IOApp.Simple {
 
   override def run = for {
     parsed <- parseFile()
-    heightMap                     = parsed._1
-    state                         = parsed._2
-    initStepsState: Option[Steps] = None
-    resultRef            <- Ref[IO].of(initStepsState)
-    shortestPathToLocRef <- Ref[IO].of(Map.empty[Location, Int])
-    _                    <- findRoutesWithFibers(state, heightMap, resultRef, shortestPathToLocRef)
-    shortestRoute        <- resultRef.get
-    _                    <- IO(println(shortestRoute))
-    _                    <- IO(println(s"Shortest route length: ${shortestRoute.get.size}"))
+    heightMap = parsed._1
+    state     = parsed._2
+    shortestRoute <- findRoutes(state, heightMap)
+    shortestRouteSize = shortestRoute.map(_.size)
+    _ <- IO(println(shortestRoute))
+    _ <- IO(println(s"Shortest route length: ${shortestRouteSize}"))
   } yield ()
 }
