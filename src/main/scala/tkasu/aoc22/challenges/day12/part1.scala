@@ -8,7 +8,7 @@ import scala.util.control.NonLocalReturns.*
 
 object part1 extends IOApp.Simple {
 
-  // private val inputResource = makeSourceResource("day12/part1/input_example")
+  //private val inputResource = makeSourceResource("day12/part1/input_example")
   private val inputResource = makeSourceResource("day12/part1/input")
 
   enum Direction {
@@ -108,7 +108,7 @@ object part1 extends IOApp.Simple {
     override def toString = stringifyMatrix(heightMatrix, "HeightMap")
   }
 
-  private val charsToHeights: Map[Char, Int] = {
+  val charsToHeights: Map[Char, Int] = {
     ('a' to 'z').zip(1 to 26).toMap + ('S' -> 1) + ('E' -> 26)
   }
 
@@ -209,7 +209,7 @@ object part1 extends IOApp.Simple {
       _ <- listOfIos.parSequence
     } yield ()
 
-  def findRoutes(state: TravelState, heightMap: HeightMap): IO[Option[Steps]] = for {
+  def findShortestRoute(state: TravelState, heightMap: HeightMap): IO[Option[Steps]] = for {
     _ <- IO(println(addThreadPrefix(s"Starting route finding for $state")))
     initStepsState: Option[Steps] = None
     resultRef            <- Ref[IO].of(initStepsState)
@@ -228,7 +228,7 @@ object part1 extends IOApp.Simple {
     parsed <- parseFile()
     heightMap = parsed._1
     state     = parsed._2
-    shortestRoute <- findRoutes(state, heightMap)
+    shortestRoute <- findShortestRoute(state, heightMap)
     shortestRouteSize = shortestRoute.map(_.size)
     _ <- IO(println(shortestRoute))
     _ <- IO(println(s"Shortest route length: ${shortestRouteSize}"))
