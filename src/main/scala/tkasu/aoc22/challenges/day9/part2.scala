@@ -1,7 +1,8 @@
 package tkasu.aoc22.challenges.day9
 
 import cats.effect.{IO, IOApp}
-import tkasu.aoc22.challenges.day9.part1.{Direction, Grid, Move, parseFile, stringifyMatrix}
+import tkasu.aoc22.utils.matrix._
+import tkasu.aoc22.challenges.day9.part1.{Direction, Grid, Move, parseFile}
 
 object part2 extends IOApp.Simple {
 

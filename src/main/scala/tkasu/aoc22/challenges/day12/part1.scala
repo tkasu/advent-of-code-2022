@@ -3,12 +3,12 @@ package tkasu.aoc22.challenges.day12
 import cats.implicits._
 import cats.effect.{IO, IOApp, Ref}
 import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
-
-import scala.util.control.NonLocalReturns.*
+import tkasu.aoc22.utils.matrix._
+import tkasu.aoc22.utils.string._
 
 object part1 extends IOApp.Simple {
 
-  //private val inputResource = makeSourceResource("day12/part1/input_example")
+  // private val inputResource = makeSourceResource("day12/part1/input_example")
   private val inputResource = makeSourceResource("day12/part1/input")
 
   enum Direction {
@@ -119,21 +119,6 @@ object part1 extends IOApp.Simple {
         .split("\n")
         .map(_.toCharArray)
       HeightMap(charMap.map(_.map(charsToHeights)))
-
-  def stringifyMatrix[T](matrix: Array[Array[T]], identifier: String): String =
-    matrix.map(_.toSeq.mkString("[", ",", "]")).toSeq.mkString(s"$identifier[\n  ", "\n  ", "\n]")
-
-  def findMatrixFirstMatchIndex[T](matrix: Array[Array[T]], findItem: T): Option[(Int, Int)] =
-    returning {
-      for (row, rowIdx) <- matrix.zipWithIndex do
-        for (item, columnIdx) <- row.zipWithIndex do
-          if (item == findItem) throwReturn(Some(rowIdx, columnIdx))
-      None
-    }
-
-  def addThreadPrefix(s: String): String =
-    val threadName = Thread.currentThread().getName
-    s"[$threadName] $s"
 
   def findNextMoves(state: TravelState, heightMap: HeightMap): Option[List[TravelState]] =
     val moveDirs = state

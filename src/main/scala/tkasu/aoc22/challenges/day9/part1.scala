@@ -1,6 +1,7 @@
 package tkasu.aoc22.challenges.day9
 
 import cats.effect.{IO, IOApp}
+import tkasu.aoc22.utils.matrix._
 import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
 
 object part1 extends IOApp.Simple {
@@ -145,9 +146,6 @@ object part1 extends IOApp.Simple {
         case _   => throw IllegalArgumentException(s"Unknown direction string $dirStr")
       }
       Move(direction = direction, count = countStr.toInt)
-
-  def stringifyMatrix[T](matrix: Array[Array[T]], identifier: String): String =
-    matrix.map(_.toSeq.mkString("[", ",", "]")).toSeq.mkString(s"$identifier[\n  ", "\n  ", "\n]")
 
   def parseFile(): IO[Seq[Move]] = for {
     input <- inputResource.use(src => readLines(src))

@@ -1,6 +1,7 @@
 package tkasu.aoc22.challenges.day10
 
 import cats.effect.{IO, IOApp}
+import tkasu.aoc22.utils.matrix._
 import tkasu.aoc22.challenges.day10.part1.{Program, parseFile}
 
 import scala.annotation.tailrec
@@ -47,9 +48,6 @@ object part2 extends IOApp.Simple {
       program.states.foldLeft(initialCrtState) { case (crtState, nextProgState) =>
         crtState.execCycles(nextProgState.time - crtState.time, nextProgState.regValue)
       }
-
-  def stringifyMatrixNoSep[T](matrix: Array[Array[T]], identifier: String): String =
-    matrix.map(_.toSeq.mkString("[", "", "]")).toSeq.mkString(s"$identifier[\n  ", "\n  ", "\n]")
 
   override def run = for {
     instructions <- parseFile()

@@ -3,6 +3,7 @@ package tkasu.aoc22.challenges.day12
 import cats.effect.{IO, IOApp}
 import cats.implicits.*
 import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
+import tkasu.aoc22.utils.matrix._
 import tkasu.aoc22.challenges.day12.part1.{
   HeightMap,
   Location,
@@ -14,14 +15,8 @@ import tkasu.aoc22.challenges.day12.part1.{
 object part2 extends IOApp.Simple {
 
   def findLowestElevationStartingPoints(heightMap: HeightMap): List[Location] =
-    heightMap.heightMatrix.zipWithIndex.foldLeft(List.empty[Location]) {
-      case (matches, (row, rowIdx)) =>
-        row.zipWithIndex
-          .filter((height, _) => height == 1)
-          .map((_, columnIdx) => Location(rowIdx, columnIdx))
-          .toList
-          ::: matches
-    }
+    findMatrixAllMatchingIndices(heightMap.heightMatrix, 1)
+      .map(locTuple => Location(locTuple._1, locTuple._2))
 
   override def run = for {
     parsed <- parseFile()
