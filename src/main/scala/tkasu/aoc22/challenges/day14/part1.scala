@@ -82,7 +82,7 @@ object part1 extends IOApp.Simple {
       sand.map(_.row).maxOption
     ).flatten.max + 1
 
-    private lazy val minNonAirWidth = List(
+    lazy val minNonAirWidth = List(
       rocks.map(_.column).minOption,
       sand.map(_.column).minOption
     ).flatten.min
