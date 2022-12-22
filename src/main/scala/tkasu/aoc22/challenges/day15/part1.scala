@@ -44,8 +44,6 @@ object part1 extends IOApp.Simple {
 
   def canHaveBeacon(beacon: Location, sensors: Seq[Sensor]): Boolean =
     sensors
-      .filter(_.loc != beacon)
-      .filter(_.closestBeacon != beacon)
       .forall { sensor =>
         val dist = Sensor.calcAbsoluteDist(sensor.loc, beacon)
         dist > sensor.absDist
@@ -66,7 +64,10 @@ object part1 extends IOApp.Simple {
     investigateLocs = (widthReachLimits._1 to widthReachLimits._2).map(column =>
       Location(investigateRow, column)
     )
-    unreachbleLocations  = investigateLocs.map(loc => (loc, canHaveBeacon(loc, sensors)))
+    unreachbleLocations  = investigateLocs
+      .filter(loc => sensors.forall(sensor => sensor.loc != loc && sensor.closestBeacon != loc))
+      .map { loc => (loc, canHaveBeacon(loc, sensors))
+    }
     reachableSensorCount = unreachbleLocations.count((_, isUnreacable) => !isUnreacable)
     //_ <- IO(println(unreachbleLocations))
     _ <- IO(println(s"Positions where beacon cannot be present: $reachableSensorCount"))
