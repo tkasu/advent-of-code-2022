@@ -8,6 +8,7 @@ import tkasu.aoc22.utils.files.{makeSourceResource, readLines}
 import tkasu.aoc22.utils.string.*
 
 import scala.util.Random
+import scala.util.Try
 
 object part2 extends IOApp.Simple {
 
@@ -15,11 +16,16 @@ object part2 extends IOApp.Simple {
   private val inputResource = makeSourceResource("day16/part1/input")
 
   implicit val orderForTravelState: Order[TravelState] = Order.fromLessThan((state1, state2) =>
-    state1.bestTheoreticalFuturePressure > state2.bestTheoreticalFuturePressure
+    state1.bestTheoreticalFuturePressureForSorting > state2.bestTheoreticalFuturePressureForSorting
   )
+
+  sealed trait Action
+  case class Move(to: String) extends Action
+  case class OpenValve()      extends Action
 
   case class TravelState(
       currentValve: Valve,
+      elephantValve: Valve,
       openValves: Set[Valve],
       valveMap: Map[String, Valve],
       pressureReleased: Int,
@@ -27,7 +33,8 @@ object part2 extends IOApp.Simple {
   ):
 
     lazy val id: String =
-      s"${currentValve.id}-${openValves.map(_.id).toSeq.sorted.mkString(",")}-$timeLeft"
+      s"${List(currentValve.id, elephantValve.id).sorted
+          .mkString(",")}-${openValves.map(_.id).toSeq.sorted.mkString(",")}-$timeLeft"
 
     def passTime(): TravelState =
       val newPressureReleased = if (openValves.isEmpty) 0 else openValves.map(_.rate).sum
@@ -36,26 +43,37 @@ object part2 extends IOApp.Simple {
         pressureReleased = pressureReleased + newPressureReleased
       )
 
-    def openValve(): TravelState =
+    def doActions(action: Action, elephAction: Action): TravelState =
+      def checkMove(valve: Valve, targetId: String): Unit =
+        if (!valve.routes.contains(targetId))
+          throw IllegalArgumentException(s"Trying to travel $targetId from $valve")
+
+      val (newCurrentValve, newElephValve, newOpenValves) = (action, elephAction) match {
+        case (OpenValve(), OpenValve()) =>
+          (currentValve, elephantValve, List(currentValve, elephantValve))
+        case (OpenValve(), Move(toId)) =>
+          checkMove(elephantValve, toId)
+          (currentValve, valveMap(toId), List(currentValve))
+        case (Move(toId), OpenValve()) =>
+          checkMove(currentValve, toId)
+          (valveMap(toId), elephantValve, List(elephantValve))
+        case (Move(toId), Move(elephToId)) =>
+          checkMove(currentValve, toId)
+          checkMove(elephantValve, elephToId)
+          (valveMap(toId), valveMap(elephToId), List())
+      }
       this
         .passTime()
         .copy(
-          openValves = openValves + currentValve
+          currentValve = newCurrentValve,
+          elephantValve = newElephValve,
+          openValves = openValves ++ newOpenValves
         )
 
-    def moveTo(id: String): TravelState =
-      if (!currentValve.routes.contains(id))
-        throw IllegalArgumentException(s"Trying to travel $id from $this")
-      this
-        .passTime()
-        .copy(
-          currentValve = valveMap(id)
-        )
-
-    // this function is not totally accurate,
-    // but should help to be a proxy to eliminating bad routes and
-    // sort the priority execution queue
-    lazy val bestTheoreticalFuturePressure: Int =
+    // This is the same function from part1
+    // But it seems to work better in priority queue than
+    // bestTheoreticalFuturePressureForElim, so lets still have it
+    lazy val bestTheoreticalFuturePressureForSorting: Int =
       val currentOpenPressures = timeLeft * openValves.map(_.rate).sum
       val remainingValves = valveMap.values.toSet
         .diff(openValves)
@@ -64,7 +82,7 @@ object part2 extends IOApp.Simple {
         .sorted(Ordering.Int.reverse)
       // it takes 1 minute to move to new location, and one minute to open valve
       // so it takes 2 minutes to get new valve flowing (except if current one can be opened)
-      val foldInitState = (currentValve.open, timeLeft, 0)
+      val foldInitState = (openValves.contains(currentValve), timeLeft, 0)
       val futureOpeningMax = remainingValves
         .foldLeft(foldInitState) { case (acc @ (firstIsOpen, timeLeftState, pressure), next) =>
           if (timeLeftState <= 0) acc
@@ -75,14 +93,45 @@ object part2 extends IOApp.Simple {
         ._3
       pressureReleased + currentOpenPressures + futureOpeningMax
 
-  case class Valve(id: String, rate: Int, open: Boolean, routes: Seq[String])
+    // this function is not totally accurate
+    // it is really overly optimistic about possible future value
+    // but should help to be a proxy to eliminating bad routes
+    lazy val bestTheoreticalFuturePressureForElim: Int =
+      val currentOpenPressures = timeLeft * openValves.map(_.rate).sum
+      val remainingValves = valveMap.values.toSet
+        .diff(openValves)
+        .map(_.rate)
+        .toList
+        .sorted(Ordering.Int.reverse)
+        .grouped(2)
+      // it takes 1 minute to move to new location, and one minute to open valve
+      // so it takes 2 minutes to get new valve flowing (except if current one can be opened)
+      val foldInitState =
+        (openValves.contains(currentValve) || openValves.contains(elephantValve), timeLeft, 0)
+      val futureOpeningMax = remainingValves
+        .foldLeft(foldInitState) { case (acc @ (firstIsOpen, timeLeftState, pressure), nxtGroup) =>
+          if (timeLeftState <= 0) acc
+          else
+            val timePass = if (firstIsOpen) 1 else 2
+            (
+              false,
+              timeLeftState - timePass,
+              pressure
+                + (nxtGroup.head * timeLeftState)
+                + (Try(nxtGroup(1)).getOrElse(0) * timeLeftState)
+            )
+        }
+        ._3
+      pressureReleased + currentOpenPressures + futureOpeningMax
+
+  case class Valve(id: String, rate: Int, routes: Seq[String])
 
   object Valve:
     def fromRaw(line: String): Valve =
       def cleanInput(id: String, rateInputStr: String, valveRoutes: Seq[String]): Valve =
         val rate   = rateInputStr.replace("rate=", "").replace(";", "").toInt
         val routes = valveRoutes.map(_.trim.replace(",", ""))
-        Valve(id, rate, false, routes)
+        Valve(id, rate, routes)
 
       line.split(" ").toList match {
         case "Valve" :: id :: "has" :: "flow" :: rateInput :: "tunnels" :: "lead" :: "to" :: "valves" :: valveRoutes =>
@@ -120,18 +169,32 @@ object part2 extends IOApp.Simple {
             )
           )
         else IO.unit
-      nextMoveStates = state.currentValve.routes.map(routeId => state.moveTo(routeId))
-      nextMoveAndOpenStates =
-        if (state.currentValve.open) nextMoveStates else nextMoveStates :+ state.openValve()
+      myNextMoveActions: Seq[Action] = state.currentValve.routes.map(routeId => Move(routeId))
+      myNextActions: Seq[Action] =
+        if (state.openValves.contains(state.currentValve)) myNextMoveActions
+        else myNextMoveActions :+ OpenValve()
+      elephNextMoveActions: Seq[Action] = state.elephantValve.routes.map(routeId => Move(routeId))
+      elepNextActions: Seq[Action] =
+        if (state.openValves.contains(state.elephantValve)) elephNextMoveActions
+        else elephNextMoveActions :+ OpenValve()
+      nextActionsCombined: Seq[(Action, Action)] = for {
+        myAction    <- myNextActions
+        elephAction <- elepNextActions
+      } yield (myAction, elephAction)
+      nextStates = nextActionsCombined.map((myAction, elephAction) =>
+        state.doActions(myAction, elephAction)
+      )
       curBestState <- resultRef.get
       _ <-
         if (timeIsOut) IO.unit
         else if (
-          state.bestTheoreticalFuturePressure < curBestState.map(_.pressureReleased).getOrElse(0)
+          state.bestTheoreticalFuturePressureForElim < curBestState
+            .map(_.pressureReleased)
+            .getOrElse(0)
         ) IO.unit
         else
           // Execute random job right away, put rest to the queue
-          val nextStatesRandomized = Random.shuffle(nextMoveAndOpenStates)
+          val nextStatesRandomized = Random.shuffle(nextStates)
           taskQueue.tryOfferN(nextStatesRandomized.tail.toList)
             >> findBestRoute(
               nextStatesRandomized.head,
@@ -208,10 +271,11 @@ object part2 extends IOApp.Simple {
     valveMap = valvesToMap(valves)
     initialState = TravelState(
       currentValve = valveMap("AA"),
+      elephantValve = valveMap("AA"),
       openValves = Set.empty,
       valveMap = valveMap,
       pressureReleased = 0,
-      timeLeft = 30
+      timeLeft = 26
     )
     bestRouteState <- findBestRouteSetup(
       initialState,
