@@ -9,7 +9,7 @@ lazy val root = project
     scalaVersion := scala3Version,
 
     libraryDependencies ++= Seq (
-      "org.typelevel" %% "cats-effect" % "3.4.1",
+      "org.typelevel" %% "cats-effect" % "3.4.4",
       "org.scalameta" %% "munit" % "0.7.29" % Test,
       )
   )
